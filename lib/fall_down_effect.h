@@ -50,21 +50,21 @@ public:
   {
     this->updateBalance();
 
-    float stabilityControl = currentAngle * this->sensitivity;
+    float stabilityControl = currentAngle * this->sensitivity * -1;
     if (stabilityControl > 25)
     {
-      M3.setDuty(constrain(stabilityControl, -40, 40));
+      M3.setDuty(constrain(stabilityControl, -100, 100));
     }
     else if (stabilityControl < -25)
     {
-      M3.setDuty(constrain(stabilityControl, -40, 40));
+      M3.setDuty(constrain(stabilityControl, -100, 100));
     }
     else
     {
       // add the Ax shit with that third wheel
 
       // works well with just single
-      // M3.setDuty(0);
+      M3.setDuty(0);
     }
   }
 
