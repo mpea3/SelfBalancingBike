@@ -34,14 +34,22 @@ private:
   }
 
 public:
+  void setup()
+  {
+    controller.begin();
+    IMU.begin();
+    this->lastTime = micros();
+  }
+
   FallDownEffect(float sensitivity)
   {
-    IMU.begin();
     this->sensitivity = sensitivity;
   };
 
   void startBalance()
   {
+    this->updateBalance();
+
     float stabilityControl = currentAngle * this->sensitivity;
     if (stabilityControl > 25)
     {
