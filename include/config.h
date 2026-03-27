@@ -84,7 +84,7 @@ constexpr float FLYWHEEL_DEAD_ZONE = 15.0f;
 
 // -- Servo Configuration (Steering) -------------------------------------------
 // Steering servo - connects to Servo1 on Motor Carrier
-constexpr int STEERING_SERVO_INDEX = 1;
+constexpr int STEERING_SERVO_INDEX = 3;
 
 // Servo angle range
 constexpr int SERVO_CENTER = 90;       // Straight ahead
