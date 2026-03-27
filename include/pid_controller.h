@@ -4,24 +4,26 @@
 
 // =============================================================================
 // PID Controller
-// General-purpose PID with anti-windup, derivative filtering, and output limits
+// Features: derivative-on-measurement, first-order derivative low-pass filter,
+// anti-windup, configurable output limits
 // =============================================================================
 
 class PIDController {
 public:
-    PIDController(float kp, float ki, float kd, float masterGain);
+    PIDController(float kp, float ki, float kd);
 
-    // Compute PID output given current error and time step
+    // Compute PID output given setpoint, measurement, and time step
+    // Uses derivative-on-measurement to avoid derivative kick
     float compute(float setpoint, float measurement, float dt);
 
-    // Reset internal state (integral sum, previous error)
+    // Reset internal state (integral sum, previous measurement, filter state)
     void reset();
 
     // Runtime gain adjustment
     void setGains(float kp, float ki, float kd);
-    void setMasterGain(float gain) { _masterGain = gain; }
     void setOutputLimits(float min, float max);
     void setIntegralLimits(float min, float max);
+    void setDerivativeFilterN(float n) { _filterN = n; }
 
     // Accessors for debugging
     float getProportional() const { return _pTerm; }
@@ -31,7 +33,6 @@ public:
 
 private:
     float _kp, _ki, _kd;
-    float _masterGain;
 
     float _pTerm = 0.0f;
     float _iTerm = 0.0f;
@@ -39,7 +40,14 @@ private:
 
     float _integral = 0.0f;
     float _prevError = 0.0f;
+    float _prevMeasurement = 0.0f;
+    float _filteredDerivative = 0.0f;
     bool _firstRun = true;
+
+    // Derivative low-pass filter coefficient
+    // Higher N = less filtering (faster response, more noise)
+    // Lower N = more filtering (slower response, less noise)
+    float _filterN = 20.0f;
 
     float _outputMin = -100.0f;
     float _outputMax = 100.0f;

@@ -68,6 +68,8 @@ void MotorControl::resetFlywheelEncoder() {
         encoder2.resetCounter(0);
     }
     _prevEncoderCount = 0;
+    _flywheelSpeed = 0.0f;
+    _saturated = false;
 }
 
 float MotorControl::getFlywheelSpeed(float dt) {
@@ -78,19 +80,27 @@ float MotorControl::getFlywheelSpeed(float dt) {
     _prevEncoderCount = currentCount;
 
     _flywheelSpeed = static_cast<float>(delta) / dt;
+
+    // Check saturation: flywheel spinning too fast in either direction
+    _saturated = (fabsf(_flywheelSpeed) > FLYWHEEL_SATURATION_SPEED);
+
     return _flywheelSpeed;
 }
 
 float MotorControl::applyDeadZone(float duty) {
-    // If the requested duty is too small, the motor won't move due to friction.
-    // Add an offset to overcome the dead zone, or zero it out.
-    if (fabs(duty) < 1.0f) {
+    // Smooth dead zone compensation using a continuous piecewise-linear ramp.
+    // Instead of an abrupt offset that causes oscillation at zero crossing,
+    // we smoothly map the [0..1] range into the dead zone and scale the rest.
+    if (fabsf(duty) < 0.5f) {
         return 0.0f;
     }
-    if (duty > 0) {
-        return duty + FLYWHEEL_DEAD_ZONE;
-    }
-    return duty - FLYWHEEL_DEAD_ZONE;
+
+    // Smooth ramp: output = sign(duty) * (deadzone + |duty| * (100 - deadzone) / 100)
+    // This maps duty=0.5 → deadzone, duty=100 → 100
+    float sign = (duty > 0) ? 1.0f : -1.0f;
+    float absDuty = fabsf(duty);
+    float scaled = FLYWHEEL_DEAD_ZONE + absDuty * (FLYWHEEL_MAX_DUTY - FLYWHEEL_DEAD_ZONE) / FLYWHEEL_MAX_DUTY;
+    return sign * scaled;
 }
 
 void MotorControl::keepAlive() {

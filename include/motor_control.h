@@ -5,7 +5,8 @@
 // =============================================================================
 // Motor Control Module
 // Controls the flywheel (inertia wheel) and rear drive motor
-// via the Arduino Nano Motor Carrier
+// via the Arduino Nano Motor Carrier.
+// Includes flywheel saturation detection for desaturation logic.
 // =============================================================================
 
 class MotorControl {
@@ -30,6 +31,12 @@ public:
     // Get flywheel speed in encoder ticks per second
     float getFlywheelSpeed(float dt);
 
+    // Returns true if flywheel is approaching saturation
+    bool isFlywheelSaturated() const { return _saturated; }
+
+    // Signed flywheel speed (positive = one direction)
+    float getFlywheelSpeedSigned() const { return _flywheelSpeed; }
+
     // Ping the motor carrier to keep communication alive
     void keepAlive();
 
@@ -37,4 +44,5 @@ private:
     float applyDeadZone(float duty);
     long _prevEncoderCount = 0;
     float _flywheelSpeed = 0.0f;
+    bool _saturated = false;
 };

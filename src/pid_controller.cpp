@@ -1,10 +1,8 @@
 #include "pid_controller.h"
 #include "config.h"
 
-PIDController::PIDController(float kp, float ki, float kd, float masterGain)
-    : _kp(kp), _ki(ki), _kd(kd), _masterGain(masterGain) {
-    setOutputLimits(PID_OUTPUT_MIN, PID_OUTPUT_MAX);
-    setIntegralLimits(PID_INTEGRAL_MIN, PID_INTEGRAL_MAX);
+PIDController::PIDController(float kp, float ki, float kd)
+    : _kp(kp), _ki(ki), _kd(kd), _filterN(DERIVATIVE_FILTER_N) {
 }
 
 float PIDController::compute(float setpoint, float measurement, float dt) {
@@ -20,18 +18,31 @@ float PIDController::compute(float setpoint, float measurement, float dt) {
     _integral = constrain(_integral, _integralMin, _integralMax);
     _iTerm = _ki * _integral;
 
-    // Derivative term (on error; skip first iteration)
+    // Derivative term: computed on measurement (not error) to avoid derivative kick
+    // when the setpoint changes. Also applies a first-order low-pass filter to
+    // suppress high-frequency sensor noise.
     if (_firstRun) {
         _dTerm = 0.0f;
+        _filteredDerivative = 0.0f;
         _firstRun = false;
     } else {
-        _dTerm = _kd * (error - _prevError) / dt;
+        // Raw derivative of measurement (negative sign because d(error)/dt = -d(measurement)/dt
+        // when setpoint is constant, and we want the same sign convention)
+        float rawDerivative = -(measurement - _prevMeasurement) / dt;
+
+        // First-order low-pass filter: y[n] = alpha * y[n-1] + (1-alpha) * x[n]
+        // alpha = N*dt / (1 + N*dt) gives filter coefficient from time constant
+        float alpha = (_filterN * dt) / (1.0f + _filterN * dt);
+        _filteredDerivative = (1.0f - alpha) * _filteredDerivative + alpha * rawDerivative;
+
+        _dTerm = _kd * _filteredDerivative;
     }
 
     _prevError = error;
+    _prevMeasurement = measurement;
 
-    // Combine and apply master gain
-    float output = _masterGain * (_pTerm + _iTerm + _dTerm);
+    // Combine terms
+    float output = _pTerm + _iTerm + _dTerm;
 
     // Clamp output
     return constrain(output, _outputMin, _outputMax);
@@ -40,6 +51,8 @@ float PIDController::compute(float setpoint, float measurement, float dt) {
 void PIDController::reset() {
     _integral = 0.0f;
     _prevError = 0.0f;
+    _prevMeasurement = 0.0f;
+    _filteredDerivative = 0.0f;
     _pTerm = 0.0f;
     _iTerm = 0.0f;
     _dTerm = 0.0f;
