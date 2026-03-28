@@ -6,31 +6,113 @@
 class FallDownEffect
 {
 private:
-  float Ax, Ay, Az;
-  float Gx, Gy, Gz;
+  // Sensor data
+  float Ax = 0, Ay = 0, Az = 0;
+  float Gx = 0, Gy = 0, Gz = 0;
+
+  // State
+  float accelAngle = 0;
   float currentAngle = 0;
-  unsigned long lastTime = 0;
-  float sensitivity = 5.0;
+  float thetaDot = 0;
+  float wheelSpeed = 0;
+  float currentDuty = 0;
+  float currentServo = 0;
+  unsigned long lastGyroTime = 0;
 
-  void updateBalance()
+  // Controller gains
+  float Kp = 5.0;
+  float Kd = 0.5;
+  float KpIW = 0.0001;
+
+  float rampRate = 4.0;
+  float servoRampRate = 2.0;
+  int servoCenter = 180;
+
+  // ---- TASK 1: Gyroscope - detect fall angle ----
+  // Reads gyro whenever available, fuses with latest accel for angle estimate
+  void updateGyroscope()
   {
-    unsigned long currentTime = micros();
-    // Calculate delta time (time between loops in seconds)
-    float dt = (currentTime - lastTime) / 1000000.0;
-    lastTime = currentTime;
+    unsigned long now = micros();
+    float dt = (now - lastGyroTime) / 1000000.0;
+    lastGyroTime = now;
 
-    if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable())
+    if (IMU.gyroscopeAvailable())
     {
-      IMU.readAcceleration(Ay, Ax, Az);
       IMU.readGyroscope(Gx, Gy, Gz);
 
-      // Az for the lean
-      float accelAngle = atan2(Ay, Az) * 57.3;
+      // Complementary filter: gyro for fast response, accel for drift correction
+      currentAngle = 0.98 * (currentAngle + Gx * 57.3 * dt) + 0.02 * accelAngle;
 
-      // COMPLEMENTARY FILTER
-      // Trust the Gyro (Gx) for quick changes, use Accel to fix drift
-      currentAngle = 0.98 * (currentAngle + Gx * 57.3 * dt) + 0.02 * (accelAngle);
+      // Angular velocity of lean
+      thetaDot = -Gx * 57.3;
     }
+
+    wheelSpeed += currentDuty * dt;
+  }
+
+  // ---- TASK 2: Flywheel - balance with accelerometer + gyro ----
+  // Uses both sensors to compute torque and drive M3
+  void controlFlywheel()
+  {
+    // Read accelerometer independently (non-blocking)
+    if (IMU.accelerationAvailable())
+    {
+      IMU.readAcceleration(Ay, Ax, Az);
+      accelAngle = atan2(Ay, Az) * 57.3;
+    }
+
+    // PD + inertia wheel speed controller — ALWAYS responds
+    float torque = Kp * currentAngle + Kd * thetaDot + KpIW * wheelSpeed;
+
+    // Accel not centered — add correction scaled 0 to 100
+    float axCorrection = 0;
+    if (abs(Ax) > 0.05)
+    {
+      float power = map(abs(Ax) * 100, 5, 100, 0, 50);
+      power = constrain(power, 0, 50);
+      axCorrection = (Ax > 0) ? -power : power;
+    }
+
+    // Combine both — always driving, never stops
+    float targetDuty = constrain(torque + axCorrection, -100, 100);
+
+    // Ramp linearly to prevent wheel spin
+    if (currentDuty < targetDuty)
+    {
+      currentDuty = min(currentDuty + rampRate, targetDuty);
+    }
+    else if (currentDuty > targetDuty)
+    {
+      currentDuty = max(currentDuty - rampRate, targetDuty);
+    }
+
+    M3.setDuty((int)currentDuty);
+  }
+
+  // ---- TASK 3: Front wheel - steer on gyro fall, center on accel center ----
+  // Reacts to gyro-detected fall, returns to center when accel is centered
+  void controlFrontWheel()
+  {
+    float targetServo = servoCenter;
+
+    // Only steer when significantly tilted — wide deadband to prevent jitter
+    if (abs(currentAngle) > 10)
+    {
+      int steerOffset = constrain((int)(currentAngle * -0.5), -30, 30);
+      targetServo = constrain(servoCenter + steerOffset, 0, 180);
+    }
+
+    // Ramp smoothly — slow rate prevents left-right oscillation
+    if (currentServo < targetServo)
+    {
+      currentServo = min(currentServo + servoRampRate, targetServo);
+    }
+    else if (currentServo > targetServo)
+    {
+      currentServo = max(currentServo - servoRampRate, targetServo);
+    }
+
+    servo3.setAngle((int)currentServo);
   }
 
 public:
@@ -38,41 +120,45 @@ public:
   {
     controller.begin();
     IMU.begin();
-    this->lastTime = micros();
+    this->lastGyroTime = micros();
   }
 
-  FallDownEffect(float sensitivity)
+  FallDownEffect(float Kp, float Kd, float KpIW, int servoCenter = 90)
   {
-    this->sensitivity = sensitivity;
+    this->Kp = Kp;
+    this->Kd = Kd;
+    this->KpIW = KpIW;
+    this->servoCenter = servoCenter;
+    this->currentServo = servoCenter;
   };
 
+  // Call every loop — runs all three tasks independently
   void startBalance()
   {
-    this->updateBalance();
-
-    float stabilityControl = currentAngle * this->sensitivity * -1;
-    if (stabilityControl > 25)
-    {
-      M3.setDuty(constrain(stabilityControl, -100, 100));
-    }
-    else if (stabilityControl < -25)
-    {
-      M3.setDuty(constrain(stabilityControl, -100, 100));
-    }
-    else
-    {
-      // add the Ax shit with that third wheel
-
-      // works well with just single
-      M3.setDuty(0);
-    }
+    updateGyroscope();
+    controlFlywheel();
+    controlFrontWheel();
   }
 
   void consoleLog()
   {
     Serial.print("Angle:");
-    Serial.println(currentAngle);
-    // Serial.print("stability:");
-    // Serial.println(stabilityControl);
+    Serial.print(currentAngle);
+    Serial.print(" Ax:");
+    Serial.print(Ax);
+    Serial.print(" Ay:");
+    Serial.print(Ay);
+    Serial.print(" Az:");
+    Serial.print(Az);
+    Serial.print(" Gx:");
+    Serial.print(Gx);
+    Serial.print(" Gy:");
+    Serial.print(Gy);
+    Serial.print(" Gz:");
+    Serial.print(Gz);
+    Serial.print(" Duty:");
+    Serial.print((int)currentDuty);
+    Serial.print(" Servo:");
+    Serial.println((int)currentServo);
   }
 };
