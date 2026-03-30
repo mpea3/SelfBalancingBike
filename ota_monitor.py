@@ -37,9 +37,25 @@ def monitor(host: str, port: int, reconnect: bool, reconnect_delay: float) -> No
             sock.close()
 
 
+def get_host_from_pio() -> str | None:
+    try:
+        import configparser
+        config = configparser.ConfigParser()
+        config.read("platformio.ini")
+        return config["env:nano33iot"].get("upload_port")
+    except Exception:
+        return None
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="OTA serial monitor client")
-    parser.add_argument("--host", required=True, help="Board IP address")
+    
+    default_host = get_host_from_pio()
+    parser.add_argument(
+        "--host", 
+        default=default_host,
+        required=(default_host is None),
+        help="Board IP address (auto-detected from platformio.ini if available)"
+    )
     parser.add_argument("--port", type=int, default=65281, help="OTA serial TCP port")
     parser.add_argument(
         "--reconnect",

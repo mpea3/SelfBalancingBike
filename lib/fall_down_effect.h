@@ -65,20 +65,21 @@ private:
     float derivative = (error - prevError) / dt;
     prevError = error;
 
-    // u(t) = Kp*e + Kd*de/dt + Kp2*gyroRate
-    float torque = (Kp * error) + (Kd * derivative) + (Kp2 * Gx);
+    // u(t) = Kp*e + Kd*de/dt + Kw*wheel_speed
+    float omega = encoder1.getCountPerSecond();
+    float torque = (Kp * error) + (Kd * derivative) + (Kp2 * omega);
 
-    float targetDuty = constrain(-torque, -70, 70);
+    float targetDuty = constrain(-torque, -100, 100);
 
-    // Ramp with emergency boost for fast falls
-    float dynamicRamp = rampRate;
-    if (fabsf(derivative) > 50.0f)
-      dynamicRamp = rampRate * 2.0f;
+    // // Ramp with emergency boost for fast falls
+    // float dynamicRamp = rampRate;
+    // if (fabsf(derivative) > 50.0f)
+    //   dynamicRamp = rampRate * 2.0f;
 
-    if (currentDuty < targetDuty)
-      currentDuty = min(currentDuty + dynamicRamp, targetDuty);
-    else if (currentDuty > targetDuty)
-      currentDuty = max(currentDuty - dynamicRamp, targetDuty);
+    // if (currentDuty < targetDuty)
+    //   currentDuty = min(currentDuty + dynamicRamp, targetDuty);
+    // else if (currentDuty > targetDuty)
+    //   currentDuty = max(currentDuty - dynamicRamp, targetDuty);
 
     M3.setDuty((int)currentDuty);
   }

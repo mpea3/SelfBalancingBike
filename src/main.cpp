@@ -39,8 +39,8 @@ private:
 
 TeePrint Log(Serial, &otaSerialClient);
 
-// PDP gains: Kp, Kd, Kp2
-FallDownEffect balancer(30.0, 5.0, 0.015, 90);
+// PDP gains: Kp, Kd, Kp2 (Kw)
+FallDownEffect balancer(25.0, 4.0, 0.015, 90);
 
 void pollOtaSerialMonitor() {
   if (otaSerialClient && !otaSerialClient.connected()) {
@@ -94,6 +94,7 @@ void loop() {
   pollOtaSerialMonitor();
   balancer.startBalance();
 
+  
   const unsigned long nowMs = millis();
   if (nowMs - lastLogMs >= 100) {
     lastLogMs = nowMs;
