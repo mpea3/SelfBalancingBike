@@ -47,7 +47,8 @@ private:
       thetaDot = -Gx * 57.3;
     }
 
-    wheelSpeed = (wheelSpeed + (currentDuty * dt)) * 0.95;
+    // wheelSpeed = (wheelSpeed + (currentDuty * dt)) * 0.95;
+    wheelSpeed = wheelSpeed * exp(-dt / 1.0) + currentDuty * dt;
   }
 
   void controlFlywheel()
@@ -66,7 +67,7 @@ private:
     float error = currentAngle - targetAngle;
     float torque = (Kp * error) + (Kd * thetaDot) + (KpIW * wheelSpeed);
 
-    float targetDuty = constrain(-torque, -100, 100);
+    float targetDuty = constrain(-torque, -70, 70);
 
     // Ramping logic (Your "Physical Awareness" code)
     // If the bike is falling FAST (high thetaDot), we should

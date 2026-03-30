@@ -4,7 +4,12 @@
 // Kp=2, Kd=0.3, KpIW=0.0001, servoCenter=50
 // FallDownEffect balancer(4.1, 1.83, 0.2001, 50);
 // 7.3, 1.8, 0.001, 50
-FallDownEffect balancer(7.3, 1.8, 2.6, 50);
+// FallDownEffect balancer(10.0, 1.6, 0.01, 90);
+
+
+
+FallDownEffect balancer(10.0, 1.6, 0.03, 90);
+// FallDownEffect balancer(10.0, 1.6, 0.3, 90);
 
 void setup()
 {
@@ -12,9 +17,7 @@ void setup()
   balancer.setup();
 }
 
-void loop()
-{
-  balancer.startBalance();
-  balancer.consoleLog();
-  M2.setDuty(0);
+void loop() {
+ balancer.startBalance(); 
+//  balancer.consoleLog();
 }
