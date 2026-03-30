@@ -89,8 +89,14 @@ void setup()
 }
 
 void loop() {
+  static unsigned long lastLogMs = 0;
   ArduinoOTA.poll();
   pollOtaSerialMonitor();
   balancer.startBalance();
-  // balancer.consoleLog();
+
+  const unsigned long nowMs = millis();
+  if (nowMs - lastLogMs >= 100) {
+    lastLogMs = nowMs;
+    balancer.consoleLog();
+  }
 }
