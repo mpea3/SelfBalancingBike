@@ -3,11 +3,13 @@
 #include <Arduino_LSM6DS3.h>
 #include <ArduinoMotorCarrier.h>
 
-/* PID Controller: u(t) = Kp*e(t) + Ki*∫e(τ)dτ + Kd*de/dt */
+/* PDP Controller: u(t) = Kp*e(t) + Kd*de/dt + Kp2*gyroRate */
 
 class FallDownEffect
 {
 private:
+  Print* logger = &Serial;
+
   // Sensor data
   float Ax = 0, Ay = 0, Az = 0;
   float Gx = 0, Gy = 0, Gz = 0;
@@ -19,16 +21,13 @@ private:
   float currentServo = 0;
   unsigned long lastGyroTime = 0;
 
-  // PID state
-  float integral = 0;
+  // PDP state
   float prevError = 0;
 
-  // PID gains
+  // PDP gains
   float Kp;
-  float Ki;
   float Kd;
-
-  float integralLimit = 50.0f;  // anti-windup clamp
+  float Kp2;
 
   float rampRate = 4.0;
   float servoRampRate = 2.0;
@@ -56,22 +55,18 @@ private:
     }
   }
 
-  // PID: u(t) = Kp*e(t) + Ki*∫e(τ)dτ + Kd*de/dt
+  // PDP: u(t) = Kp*e(t) + Kd*de/dt + Kp2*gyroRate
   void controlFlywheel(float dt)
   {
     float yRef = 0.0f;  // target angle
     float error = currentAngle - yRef;
 
-    // I: accumulate error over time
-    integral += error * dt;
-    integral = constrain(integral, -integralLimit, integralLimit);
-
     // D: rate of change of error
     float derivative = (error - prevError) / dt;
     prevError = error;
 
-    // u(t) = Kp*e + Ki*∫e + Kd*de/dt
-    float torque = (Kp * error) + (Ki * integral) + (Kd * derivative);
+    // u(t) = Kp*e + Kd*de/dt + Kp2*gyroRate
+    float torque = (Kp * error) + (Kd * derivative) + (Kp2 * Gx);
 
     float targetDuty = constrain(-torque, -70, 70);
 
@@ -96,18 +91,24 @@ public:
     this->lastGyroTime = micros();
   }
 
-  FallDownEffect(float Kp, float Ki, float Kd, int servoCenter = 90)
+  FallDownEffect(float Kp, float Kd, float Kp2, int servoCenter = 90)
   {
     this->Kp = Kp;
-    this->Ki = Ki;
     this->Kd = Kd;
+    this->Kp2 = Kp2;
     this->servoCenter = servoCenter;
     this->currentServo = servoCenter;
   };
 
+  void setLogger(Print& output)
+  {
+    logger = &output;
+  }
+
   void startBalance()
   {
     unsigned long now = micros();
+    if (now - lastGyroTime < 1000) return;  // 1ms update rate
     float dt = (now - lastGyroTime) / 1000000.0f;
     lastGyroTime = now;
 
@@ -117,23 +118,23 @@ public:
 
   void consoleLog()
   {
-    Serial.print("Angle:");
-    Serial.print(currentAngle);
-    Serial.print(" Ax:");
-    Serial.print(Ax);
-    Serial.print(" Ay:");
-    Serial.print(Ay);
-    Serial.print(" Az:");
-    Serial.print(Az);
-    Serial.print(" Gx:");
-    Serial.print(Gx);
-    Serial.print(" Gy:");
-    Serial.print(Gy);
-    Serial.print(" Gz:");
-    Serial.print(Gz);
-    Serial.print(" Duty:");
-    Serial.print((int)currentDuty);
-    Serial.print(" Servo:");
-    Serial.println((int)currentServo);
+    logger->print("Angle:");
+    logger->print(currentAngle);
+    logger->print(" Ax:");
+    logger->print(Ax);
+    logger->print(" Ay:");
+    logger->print(Ay);
+    logger->print(" Az:");
+    logger->print(Az);
+    logger->print(" Gx:");
+    logger->print(Gx);
+    logger->print(" Gy:");
+    logger->print(Gy);
+    logger->print(" Gz:");
+    logger->print(Gz);
+    logger->print(" Duty:");
+    logger->print((int)currentDuty);
+    logger->print(" Servo:");
+    logger->println((int)currentServo);
   }
 };
