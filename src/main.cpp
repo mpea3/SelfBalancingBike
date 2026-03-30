@@ -1,6 +1,6 @@
 #include <Arduino.h>
-#include <ArduinoOTA.h>
 #include <WiFiNINA.h>
+#include <ArduinoOTA.h>
 #include <../lib/fall_down_effect.h>
 
 // WiFi credentials — update these for your network
@@ -8,7 +8,7 @@ const char* WIFI_SSID = "MaeLaptop";
 const char* WIFI_PASS = "opensesame";
 
 // PID gains: Kp, Ki, Kd
-FallDownEffect balancer(50.0, 0.015, 5.0, 90);
+FallDownEffect balancer(30.0, 0.015, 5.0, 90);
 
 void connectWiFi() {
   Serial.print("Connecting to WiFi");
