@@ -1,37 +1,22 @@
 #include <Arduino.h>
-#include <WiFiNINA.h>
-#include <ArduinoOTA.h>
 #include <../lib/fall_down_effect.h>
 
-// WiFi credentials — update these for your network
-const char* WIFI_SSID = "MaeLaptop";
-const char* WIFI_PASS = "opensesame";
+// Kp=2, Kd=0.3, KpIW=0.0001, servoCenter=50
+// FallDownEffect balancer(4.1, 1.83, 0.2001, 50);
+// 7.3, 1.8, 0.001, 50
+// FallDownEffect balancer(10.0, 1.6, 0.01, 90);
 
-// PID gains: Kp, Ki, Kd
-FallDownEffect balancer(30.0, 0.015, 5.0, 90);
-
-void connectWiFi() {
-  Serial.print("Connecting to WiFi");
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  Serial.print("Connected — IP: ");
-  Serial.println(WiFi.localIP());
-}
+FallDownEffect balancer(10.0, 1.6, 0.03, 90);
+// FallDownEffect balancer(10.0, 1.6, 0.3, 90);
 
 void setup()
 {
   Serial.begin(115200);
-  connectWiFi();
-  ArduinoOTA.begin(WiFi.localIP(), "nano33iot", "password", InternalStorage);
   balancer.setup();
 }
 
-void loop() {
-  ArduinoOTA.poll();
+void loop()
+{
   balancer.startBalance();
-  // balancer.consoleLog();
+  //  balancer.consoleLog();
 }
