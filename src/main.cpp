@@ -1,13 +1,10 @@
 #include <Arduino.h>
 #include <../lib/fall_down_effect.h>
 
-// Kp=2, Kd=0.3, KpIW=0.0001, servoCenter=50
-// FallDownEffect balancer(4.1, 1.83, 0.2001, 50);
-// 7.3, 1.8, 0.001, 50
-// FallDownEffect balancer(10.0, 1.6, 0.01, 90);
+FallDownEffect balancer(12.3, 0.1, 0.01, 0.02);
 
-FallDownEffect balancer(10.0, 1.6, 0.03, 90);
-// FallDownEffect balancer(10.0, 1.6, 0.3, 90);
+// speed 75
+// FallDownEffect balancer(3.3, 5.0, -7.06);
 
 void setup()
 {
@@ -18,5 +15,6 @@ void setup()
 void loop()
 {
   balancer.startBalance();
-  //  balancer.consoleLog();
+  balancer.consoleLog();
+  M2.setDuty(0);
 }
